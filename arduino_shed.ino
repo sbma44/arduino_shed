@@ -1,7 +1,5 @@
-#include <avr/sleep.h>
-#include <avr/power.h>
+#include <LowPower.h>
 
-volatile bool watchdogActivated = false;
 unsigned long cycle_count = 0;
 unsigned long last_motion_detected = 0;
  
@@ -14,7 +12,6 @@ int status_led = 13;
 
 int ptt_pin = 8;
 int tx_pin = 9;
-
 
 boolean lights_on = false;
 
@@ -31,35 +28,12 @@ void fade(boolean up){
   }
 }
 
-// Define watchdog timer interrupt.
-ISR(WDT_vect)
-{
-  // Set the watchdog activated flag.
-  // Note that you shouldn't do much work inside an interrupt handler.
-  watchdogActivated = true;
-}
-
 // Put the Arduino to sleep.
 void sleep()
 {
-  // Set sleep to full power down.  Only external interrupts or 
-  // the watchdog timer can wake the CPU!
-  set_sleep_mode(SLEEP_MODE_PWR_DOWN);
-
-  // Turn off the ADC while asleep.
-  power_adc_disable();
-
-  // Enable sleep and enter sleep mode.
-  sleep_mode();
-
-  // CPU is now asleep and program execution completely halts!
-  // Once awake, execution will resume at this point.
-  
+  LowPower.idle(SLEEP_8S, ADC_OFF, TIMER2_OFF, TIMER1_OFF, TIMER0_OFF, 
+                SPI_OFF, USART0_OFF, TWI_OFF);
   cycle_count = cycle_count + 1;
-  
-  // When awake, disable sleep mode and turn on all devices.
-  sleep_disable();
-  power_all_enable();
 }
 
 // the setup routine runs once when you press reset:
@@ -76,33 +50,6 @@ void setup() {
   digitalWrite(motion, LOW);
   digitalWrite(light, HIGH); 
   analogWrite(led, 0);
- 
-   // Setup the watchdog timer to run an interrupt which
-  // wakes the Arduino from sleep every 8 seconds.
-  
-  // Note that the default behavior of resetting the Arduino
-  // with the watchdog will be disabled.
-  
-  // This next section of code is timing critical, so interrupts are disabled.
-  // See more details of how to change the watchdog in the ATmega328P datasheet
-  // around page 50, Watchdog Timer.
-  noInterrupts();
-  
-  // Set the watchdog reset bit in the MCU status register to 0.
-  MCUSR &= ~(1<<WDRF);
-  
-  // Set WDCE and WDE bits in the watchdog control register.
-  WDTCSR |= (1<<WDCE) | (1<<WDE);
-
-  // Set watchdog clock prescaler bits to a value of 8 seconds.
-  WDTCSR = (1<<WDP0) | (1<<WDP2);
-  
-  // Enable watchdog as interrupt only (no reset).
-  WDTCSR |= (1<<WDIE);
-  
-  // Enable interrupts again.
-  interrupts();
- 
 }
 
 // the loop routine runs over and over again forever:
